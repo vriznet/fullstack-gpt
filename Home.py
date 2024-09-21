@@ -1,11 +1,18 @@
 import streamlit as st
 
-st.title("Hello World")
+st.title("title")
 
-st.subheader("Welcome to Streamlit")
+with st.sidebar:
+    st.title("sidebar title")
+    st.text_input("text input")
 
-st.markdown(
-    """
-  #### I love it!
-"""
-)
+tab_one, tab_two, tab_three = st.tabs(["A", "B", "C"])
+
+with tab_one:
+    st.write("a")
+
+with tab_two:
+    st.write("b")
+
+with tab_three:
+    st.write("c")
