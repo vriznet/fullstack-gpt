@@ -1,18 +1,23 @@
 import streamlit as st
 
-st.title("title")
+st.set_page_config(
+    page_title="FullstackGPT Home",
+    page_icon="🧊",
+)
 
-with st.sidebar:
-    st.title("sidebar title")
-    st.text_input("text input")
+st.markdown(
+    """
+# Hello!
 
-tab_one, tab_two, tab_three = st.tabs(["A", "B", "C"])
+Welcome to my FullstackGPT Portfolio!
 
-with tab_one:
-    st.write("a")
+Here are the apps I made:
 
-with tab_two:
-    st.write("b")
-
-with tab_three:
-    st.write("c")
+- [ ] [DocumentGPT](/DocumentGPT)
+- [ ] [PrivateGPT](/PrivateGPT)
+- [ ] [QuizGPT](/QuizGPT)
+- [ ] [SiteGPT](/SiteGPT)
+- [ ] [MeetingGPT](/MeetingGPT)
+- [ ] [InvestorGPT](/InvestorGPT)
+"""
+)
