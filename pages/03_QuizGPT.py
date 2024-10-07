@@ -35,6 +35,19 @@ def split_file(file):
     return docs
 
 
+@st.cache_data(show_spinner="Making quiz...")
+def run_quiz_chain(_docs, topic):
+    chain = {"context": questions_chain} | formatting_chain | output_parser
+    return chain.invoke(_docs)
+
+
+@st.cache_data(show_spinner="Searching Wikipedia...")
+def search_wikipedia(term):
+    retriever = WikipediaRetriever(top_k_results=5, lang="ko")
+    docs = retriever.get_relevant_documents(term)
+    return docs
+
+
 def format_docs(docs):
     return "\n\n".join(document.page_content for document in docs)
 
@@ -216,6 +229,7 @@ formatting_chain = formatting_prompt | llm
 
 with st.sidebar:
     docs = None
+    topic = None
     choice = st.selectbox(
         "Choose what you want use.",
         (
@@ -232,9 +246,7 @@ with st.sidebar:
     else:
         topic = st.text_input("Search Wikipedia...")
         if topic:
-            retriever = WikipediaRetriever(top_k_results=5, lang="ko")
-            with st.status("Searching Wikipedia..."):
-                docs = retriever.get_relevant_documents(topic)
+            docs = search_wikipedia(topic)
 
 if not docs:
     st.markdown(
@@ -251,7 +263,5 @@ else:
     start = st.button("Generate Quiz")
 
     if start:
-        chain = {"context": questions_chain} | formatting_chain | output_parser
-
-        response = chain.invoke(docs)
+        response = run_quiz_chain(docs, topic if topic else file.name)
         st.write(response)
