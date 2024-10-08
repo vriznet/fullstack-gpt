@@ -1,8 +1,21 @@
 import streamlit as st
-from langchain.document_loaders import AsyncChromiumLoader
-from langchain_community.document_transformers import Html2TextTransformer
+from langchain_community.document_loaders import SitemapLoader
+from fake_useragent import UserAgent
 
-html2text_transformer = Html2TextTransformer()
+ua = UserAgent()
+
+
+@st.cache_data(show_spinner="Loading website...")
+def load_website(url):
+    try:
+        loader = SitemapLoader(url)
+        loader.requests_per_second = 3
+        loader.headers = {"User-Agent": ua.random}
+        docs = loader.load()
+        return docs
+    except Exception:
+        return []
+
 
 st.set_page_config(
     page_title="SiteGPT",
@@ -21,12 +34,20 @@ st.markdown(
 
 with st.sidebar:
     url = st.text_input(
-        "Write down a URL",
-        placeholder="https://example.com",
+        "Write down a sitemap URL",
+        placeholder="https://example.com/sitemap.xml",
     )
 
 if url:
-    loader = AsyncChromiumLoader([url])
-    docs = loader.load()
-    transformed = html2text_transformer.transform_documents(docs)
-    st.write(transformed)
+    if ".xml" not in url:
+        with st.sidebar:
+            st.error("Please write down a sitemap URL.")
+    else:
+        docs = load_website(url)
+        if docs:
+            st.write(docs)
+        else:
+            st.error(
+                "Failed to load documents from the sitemap. Please check the"
+                " URL and try again."
+            )
