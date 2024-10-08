@@ -1,17 +1,38 @@
 import streamlit as st
 from langchain_community.document_loaders import SitemapLoader
+from langchain.text_splitter import RecursiveCharacterTextSplitter
 from fake_useragent import UserAgent
 
 ua = UserAgent()
 
 
+def parse_page(soup):
+    header = soup.find("header")
+    footer = soup.find("footer")
+    if header:
+        header.decompose()
+    if footer:
+        footer.decompose()
+    return str(soup.get_text()).replace("\n", " ").replace("\xa0", " ")
+
+
 @st.cache_data(show_spinner="Loading website...")
 def load_website(url):
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=1000,
+        chunk_overlap=200,
+    )
     try:
-        loader = SitemapLoader(url)
+        loader = SitemapLoader(
+            url,
+            filter_urls=[
+                r"^(.*\/ko\/).*",
+            ],
+            parsing_function=parse_page,
+        )
         loader.requests_per_second = 3
         loader.headers = {"User-Agent": ua.random}
-        docs = loader.load()
+        docs = loader.load_and_split(text_splitter=splitter)
         return docs
     except Exception:
         return []
