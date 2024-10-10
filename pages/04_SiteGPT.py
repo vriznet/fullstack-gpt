@@ -1,14 +1,11 @@
 import streamlit as st
 from langchain_community.document_loaders import SitemapLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from fake_useragent import UserAgent
 from langchain.vectorstores.faiss import FAISS
 from langchain_community.embeddings.openai import OpenAIEmbeddings
 from langchain.schema.runnable import RunnablePassthrough, RunnableLambda
 from langchain.chat_models.openai import ChatOpenAI
 from langchain.prompts import ChatPromptTemplate
-
-ua = UserAgent()
 
 llm = ChatOpenAI(
     model="gpt-3.5-turbo",
@@ -41,21 +38,58 @@ answers_prompt = ChatPromptTemplate.from_template(
 """
 )
 
+choose_prompt = ChatPromptTemplate.from_messages(
+    [
+        (
+            "system",
+            """
+            Use ONLY the following pre-existing answers
+            to answer the user's question.
+            Use the answers that have the highest score (more helpful)
+            and favor the most recent ones.
+            Cite sources and return the sources of the answers as they are,
+            do not change them.
+            Answers: {answers}
+            """,
+        ),
+        ("human", "{question}"),
+    ]
+)
+
 
 def get_answers(inputs):
     docs = inputs["docs"]
     question = inputs["question"]
     answers_chain = answers_prompt | llm
-    answers = []
-    for doc in docs:
-        result = answers_chain.invoke(
+
+    return {
+        "question": question,
+        "answers": [
             {
-                "question": question,
-                "context": doc.page_content,
+                "answer": answers_chain.invoke(
+                    {"question": question, "context": doc.page_content}
+                ).content,
+                "source": doc.metadata["source"],
             }
-        )
-        answers.append(result.content)
-    st.write(answers)
+            for doc in docs
+        ],
+    }
+
+
+def choose_answer(inputs):
+    answers = inputs["answers"]
+    question = inputs["question"]
+    choose_chain = choose_prompt | llm
+    condensed = "\n\n".join(
+        f"{answer['answer']}\n\nSource:{answer['source']}\n\n"
+        for answer in answers
+    )
+    return choose_chain.invoke(
+        {
+            "question": question,
+            "answers": condensed,
+        }
+    )
 
 
 def parse_page(soup):
@@ -83,7 +117,6 @@ def load_website(url):
             parsing_function=parse_page,
         )
         loader.requests_per_second = 3
-        loader.headers = {"User-Agent": ua.random}
         docs = loader.load_and_split(text_splitter=splitter)
         vector_store = FAISS.from_documents(docs, OpenAIEmbeddings())
         return vector_store.as_retriever()
@@ -118,10 +151,16 @@ if url:
             st.error("Please write down a sitemap URL.")
     else:
         retriever = load_website(url)
+        query = st.text_input("Ask a question to the website.")
+        if query:
+            chain = (
+                {
+                    "docs": retriever,
+                    "question": RunnablePassthrough(),
+                }
+                | RunnableLambda(get_answers)
+                | RunnableLambda(choose_answer)
+            )
 
-        chain = {
-            "docs": retriever,
-            "question": RunnablePassthrough(),
-        } | RunnableLambda(get_answers)
-
-        chain.invoke("What are the key features of Google Forms?")
+            result = chain.invoke(query)
+            st.markdown(result.content.replace("$", "\$"))  # noqa: W605
