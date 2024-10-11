@@ -85,20 +85,32 @@ with st.sidebar:
     )
 
 if video:
-    with st.status("Loading video..."):
+    with st.status("Loading video...") as status:
         video_content = video.read()
         video_path = f"./.cache/files/meeting_videos/{video.name}"
         audio_path = re.sub(r"\.[^.]+$", ".mp3", video_path)
+        audio_chunks_path = "./.cache/files/meeting_audio_chunks"
+        transcript_path = "./.cache/files/meeting_transcript.txt"
         with open(video_path, "wb") as f:
             f.write(video_content)
-    with st.status("Extracting audio..."):
+        status.update(label="Extracting audio...")
         extract_audio_from_video(video_path)
-    with st.status("Cutting audio segments..."):
-        cut_audio_in_chunks(
-            audio_path, 10, "./.cache/files/meeting_audio_chunks"
-        )
-    with st.status("Transcribing audio"):
+        status.update(label="Cutting audio segments...")
+        cut_audio_in_chunks(audio_path, 10, audio_chunks_path)
+        status.update(label="Transcribing audio...")
         transcribe_chunks(
-            "./.cache/files/meeting_audio_chunks",
-            "./.cache/files/meeting_transcript.txt",
+            audio_chunks_path,
+            transcript_path,
         )
+
+    transcript_tab, summary_tab, chat_tab = st.tabs(
+        [
+            "Transcript",
+            "Summary",
+            "Q&A",
+        ]
+    )
+
+    with transcript_tab:
+        with open(transcript_path, "r") as file:
+            st.write(file.read())
